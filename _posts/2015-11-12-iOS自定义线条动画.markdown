@@ -1,0 +1,66 @@
+下面这个案例中，我把线条动画和数学知识结合在了一起。通过这个案例，可以很好地向你展示如何自己归纳出一个数学公式，并把它用到一个自定义动画中。
+
+首先，我们还是先看最终效果 ：
+
+
+OK，可以看到随着手指在屏幕上滑动距离的改变，线条一开始逐渐靠拢，到达一定位置后开始弯曲，最终合并成了一个圆。顺便一提，我已经把这个动画封装到了一个上拉、下拉刷新的控件中，并且用在了大象公会这款独立开发的 App 中。 你可以提前下载下来一睹实际效果。
+
+下面讲讲我是怎么思考这个动画的。首先，最终控制这个动画进度的是一个 CALayer 内部的自定义的属性：
+
+@property(nonatomic,assign)CGFloat progress;
+
+无论你是通过手指滑动产生偏移量，还是滑动 UISlider 改变一个数值，最终都将转化到这个属性的改变。然后，在这个属性的 setter 方法里，我们让 layer 去实时地重绘，就像这样：
+
+-(void)setProgress:(CGFloat)progress{
+
+self.curveLayer.progress = progress;
+
+[self.curveLayer setNeedsDisplay];
+
+}
+
+至于重绘的算法，属于细节上要考虑的事了。我们做一个动画的步骤都是先考虑宏观，再去考虑细节上的实现。就像开发一个 App 一样，一开始肯定是先考虑架构，再去往这个框架里添砖加瓦，修修补补。现在，我们对这个动画的整体思路已经清楚了，下面开始深入到细节去思考具体算法的实现。我把这个动画分成了两个阶段：0～0.5 和 0.5～1.0。 这是什么意思？
+
+做动画还是那句话 ——「善于分解」。我们先看前半程，也就是 progress 从一开始的 0 运动到中间状态 0.5 的这一个阶段。这一个阶段两条线段分别从上方和下方两个方向向中间运动，直到接触到中线为止。这一阶段的画线算法非常简单，只要能实时获得 A,B 两点的坐标，剩下用 UIBezierPath 的 moveToPoint,addLineToPoint 就完事了。所以，问题转换成了求 A,B 两点运动的公式（其实只要求出一点，另一点无非就相差了一个线段长度 h）。
+
+
+
+
+
+
+其实你只要愿意动笔在纸上尝试推演一番，并不难求得这两个点的运动公式：
+
+yA = H/2 + h + (1-2*progress) * (H/2 - h)
+
+yB = H/2 + (1-2*progress) * (H/2 - h)
+
+接下来是动画的第二阶段 0.5～1.0。这个阶段有些许复杂：「B 点保持不动，A 点继续运动到 B 的位置，同时，在顶部根据当前的进度再画出圆弧」。视觉上给人的感觉就好像尾巴在逐渐缩短，头部在慢慢弯曲。
+
+
+
+
+
+在这个过程中，我们不难先求得 A 点的坐标是：
+
+yA = H/2 + h - h*(progress - 0.5) *2
+
+比较麻烦的是这个圆弧该怎么画？答案是可以用 UIBezierPath 中提供的 - (void)addArcWithCenter:(CGPoint)center radius:(CGFloat)radius startAngle:(CGFloat)startAngle endAngle:(CGFloat)endAngle clockwise:(BOOL)clockwise NS_AVAILABLE_IOS(4_0); 这个方法绘制出圆弧。具体思路是：以 CGPointMake(self.frame.size.width/2，self.frame.size.height/2) 为圆心，10 为半径，按顺时针方向，从 M_PI(90°) 的起始角度，画到 2*M_PI 的结束角度。
+
+关于 - (void)addArcWithCenter:(CGPoint)center radius:(CGFloat)radius startAngle:(CGFloat)startAngle endAngle:(CGFloat)endAngle clockwise:(BOOL)clockwise; 方法的解释：如果设置开始角度均为 0 ，结束角度均为 π。那么设置 clockwise（顺时针） 为 YES 时，画出的是下半段圆弧；反之， 设置 clockwise（顺时针） 为 NO 时，画出的是上半段圆弧；
+
+
+
+
+以上，我们只完成了一条线段的整个过程。同理，也能获得另一条线段的绘制算法。最后，别忘了线段顶端还有个箭头。绘制箭头的算法 Gallery 4.1：我们以 B 点作为箭头的起始起点，斜向左下方 30° 角延长 3 个单位。弯曲之后也同理，只需要额外加上线段转过的角度即可。
+
+
+
+
+
+相应的代码就是：
+
+[arrowPath moveToPoint:pointB];
+
+[arrowPath addLineToPoint:CGPointMake(pointB.x - 3*(cosf(Degree)), pointB.y + 3*(sinf(Degree)))];
+
+[curvePath1 appendPath:arrowPath];
