@@ -1,7 +1,7 @@
 # Site settings
-title: Modern Blog
-description: Modern-Blog A Elegant template for Jekyll
-keywords: Modern, Blogging, Fun
-author: Wferr
+title: Mr LeeFengHY 代码生涯
+description: Hi, 我是一名忠实的iOS开发者, 我想通过自己的微博来记录我的开发生涯, 同时也希望能帮助更多人, 分享我的成果!!
+keywords: iOS, LeeFengHy
+author: LeeFengHY - 李平
 baseurl: "" # the subpath of your site, e.g. /blog/
 url: "" # the base hostname & protocol for your site
